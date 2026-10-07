@@ -7,8 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # مستخدم node الموجود مسبقاً (uid 1000) — بلا صلاحيات root
 USER node
-ENV PATH="/home/node/.opencode/bin:${PATH}"
-RUN curl -fsSL https://opencode.ai/install | bash
+RUN npm install -g @opencode/cli@2.0.14
 
 WORKDIR /app
 COPY --chown=node:node . /app
