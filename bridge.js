@@ -9,7 +9,7 @@ const CLI = process.env.CLI_PATH || "opencode";
 const PROJECT_DIR = process.env.PROJECT_DIR || "/app";
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 const ALLOWED = (process.env.ALLOWED_USERS || "").split(",").map((s) => s.trim()).filter(Boolean);
-const MODEL = { providerID: "zenfree", id: "bunny" };
+const MODEL = { providerID: process.env.MODEL_PROVIDER || "zenfree", id: process.env.MODEL_ID || "bunny" };
 const POLL = parseInt(process.env.POLL_SECONDS || "30", 10);
 const WAIT = parseInt(process.env.WAIT_TIMEOUT_MS || "300000", 10);
 const OFFSET_FILE = path.join(DIR, "bridge-offset.txt");
