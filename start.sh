@@ -3,6 +3,8 @@
 set -e
 export PATH="$HOME/.opencode/bin:$PATH"
 PORT_NOW="${PORT:-10000}"
+echo "[boot] opencode version: $(opencode --version 2>&1 | head -2)"
+echo "[boot] api help: $(opencode api --help 2>&1 | head -5)"
 
 echo "[boot] memory pull..."
 if [ -n "$GIT_TOKEN" ]; then
