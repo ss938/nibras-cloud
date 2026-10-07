@@ -1,6 +1,7 @@
 #!/bin/sh
 # إقلاع نسخة نبراس السحابية: ذاكرة ← خادم ← مزامنة ← جسر (أو انتظار).
 set -e
+export PATH="$HOME/.opencode/bin:$PATH"
 PORT_NOW="${PORT:-10000}"
 
 echo "[boot] memory pull..."
