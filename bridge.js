@@ -96,8 +96,21 @@ async function handleUpdate(u) {
   } catch (e) { log("error: " + e.message); }
 }
 
+async function waitForServe() {
+  const url = "http://127.0.0.1:" + (process.env.PORT || "10000") + "/";
+  for (let i = 0; i < 24; i++) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (r.ok) { log("serve is up"); return; }
+    } catch {}
+    await delay(5000);
+  }
+  log("serve not responding yet — continuing anyway");
+}
+
 async function main() {
   if (!BOT_TOKEN) { console.error("BOT_TOKEN missing"); process.exit(1); }
+  await waitForServe();
   const me = await tg("getMe");
   log("connected as @" + me.username);
   let offset = loadOffset();
