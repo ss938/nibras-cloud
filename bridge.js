@@ -52,30 +52,39 @@ function getSession(userId) {
 }
 
 async function askNibras(sessionId, text, chatId) {
-  const before = ((oc("get", "/api/session/" + sessionId + "/message", undefined, 30000).data) || []).length;
-  oc("post", "/api/session/" + sessionId + "/prompt", { text }, 60000);
-  const t0 = Date.now();
-  let stable = 0, lastId = null, best = null;
-  for (;;) {
-    if (Date.now() - t0 > WAIT) break;
-    if (chatId) tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
-    await delay(5000);
-    let msgs = [];
-    try { msgs = (oc("get", "/api/session/" + sessionId + "/message", undefined, 30000).data) || []; }
-    catch { continue; }
-    if (!msgs.length) continue;
-    const fresh = msgs.slice(before);
-    const errs = fresh.filter((m) => m.type === "assistant" && m.finish === "error");
-    if (errs.length) { log("model error: " + JSON.stringify(errs[errs.length - 1].error || {}).slice(0, 300)); return "multiple"; } // إشارة للجسر ليرد برسالة تعثر عامة
-    const stops = fresh.filter((m) => m.type === "assistant" && m.finish === "stop" && m.content && m.content.some((c) => c.text && c.text.trim()));
-    if (stops.length) {
-      best = stops[stops.length - 1].content.filter((c) => c.text).map((c) => c.text).join("\n").trim().slice(0, 3900);
-      const newestId = msgs[msgs.length - 1].id;
-      if (newestId === lastId) { stable++; if (stable >= 2 && best) return best; }
-      else { stable = 0; lastId = newestId; }
+  const getMsgs = () => (oc("get", "/api/session/" + sessionId + "/message", undefined, 30000).data) || [];
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const before = getMsgs().length;
+    oc("post", "/api/session/" + sessionId + "/prompt", { text }, 60000);
+    const t0 = Date.now();
+    let stable = 0, lastId = null, best = null, quota = false;
+    for (;;) {
+      if (Date.now() - t0 > 150000) break;
+      if (chatId) tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
+      await delay(5000);
+      let msgs = [];
+      try { msgs = getMsgs(); } catch { continue; }
+      if (!msgs.length) continue;
+      const fresh = msgs.slice(before);
+      const errs = fresh.filter((m) => m.type === "assistant" && m.finish === "error");
+      if (errs.length) {
+        const e = errs[errs.length - 1].error || {};
+        log("model error: " + JSON.stringify(e).slice(0, 300));
+        if (e.status === 429 && attempt < 3) { quota = true; break; }
+        return "multiple"; // إشارة للجسر ليرد برسالة تعثر عامة
+      }
+      const stops = fresh.filter((m) => m.type === "assistant" && m.finish === "stop" && m.content && m.content.some((c) => c.text && c.text.trim()));
+      if (stops.length) {
+        best = stops[stops.length - 1].content.filter((c) => c.text).map((c) => c.text).join("\n").trim().slice(0, 3900);
+        const newestId = msgs[msgs.length - 1].id;
+        if (newestId === lastId) { stable++; if (stable >= 2 && best) return best; }
+        else { stable = 0; lastId = newestId; }
+      }
     }
+    if (quota) { log("quota 429 — retry " + attempt + "/3 after 60s"); await delay(60000); continue; }
+    return best || "multiple";
   }
-  return best || "multiple";
+  return "multiple";
 }
 
 async function handleUpdate(u) {
