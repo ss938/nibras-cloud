@@ -7,6 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN npm install -g @opencode/cli@2.0.14
 
+# حزمة خطاف الذاكرة (memory-inject) — تُثبَّت محلياً في المشروع لتُحلّ من داخل الخطاف
+COPY --chown=node:node package.json /app/package.json
+RUN cd /app && npm install --no-audit --no-fund
+
 # مستخدم node الموجود مسبقاً (uid 1000) — بلا صلاحيات root
 USER node
 
