@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: nibras-cloud
+    runtime: docker
+    plan: free
+    region: oregon
+    repo: https://github.com/ss938/nibras-cloud
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: GIT_TOKEN
+        sync: false
+      - key: ALLOWED_USERS
+        value: "7625383221"
+      - key: START_BRIDGE
+        value: "0"
+      - key: MEMORY_REPO
+        value: ss938/nibras-memory

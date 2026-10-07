@@ -1,0 +1,5 @@
+node_modules/
+*.log
+bridge-sessions.json
+bridge-offset.txt
+.env
