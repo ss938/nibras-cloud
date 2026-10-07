@@ -25,6 +25,7 @@ echo "[boot] wait done."
 
 ./sync.sh &
 echo "[boot] sync started."
+echo "[boot] START_BRIDGE=[$START_BRIDGE]"
 
 if [ "$START_BRIDGE" = "1" ]; then
   echo "[boot] starting telegram bridge..."
