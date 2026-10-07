@@ -66,7 +66,7 @@ async function askNibras(sessionId, text, chatId) {
     if (!msgs.length) continue;
     const fresh = msgs.slice(before);
     const errs = fresh.filter((m) => m.type === "assistant" && m.finish === "error");
-    if (errs.length) return "multiple"; // إشارة للجسر ليرد برسالة تعثر عامة
+    if (errs.length) { log("model error: " + JSON.stringify(errs[errs.length - 1].error || {}).slice(0, 300)); return "multiple"; } // إشارة للجسر ليرد برسالة تعثر عامة
     const stops = fresh.filter((m) => m.type === "assistant" && m.finish === "stop" && m.content && m.content.some((c) => c.text && c.text.trim()));
     if (stops.length) {
       best = stops[stops.length - 1].content.filter((c) => c.text).map((c) => c.text).join("\n").trim().slice(0, 3900);
