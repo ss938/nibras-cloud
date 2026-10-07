@@ -5,9 +5,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app /tmp/mem && chown -R node:node /app /tmp/mem
 
+RUN npm install -g @opencode/cli@2.0.14
+
 # مستخدم node الموجود مسبقاً (uid 1000) — بلا صلاحيات root
 USER node
-RUN npm install -g @opencode/cli@2.0.14
 
 WORKDIR /app
 COPY --chown=node:node . /app
