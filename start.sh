@@ -16,19 +16,22 @@ else
 fi
 
 echo "[boot] starting opencode serve on :$PORT_NOW ..."
-opencode serve --port "$PORT_NOW" --hostname 0.0.0.0 &
-for i in $(seq 1 30); do
-  curl -sf "http://localhost:$PORT_NOW/" >/dev/null 2>&1 && break
+opencode serve --port "$PORT_NOW" --hostname 0.0.0.0 > /tmp/serve.log 2>&1 &
+i=0
+while [ $i -lt 30 ]; do
+  if curl -sf "http://localhost:$PORT_NOW/" >/dev/null 2>&1; then break; fi
+  i=$((i + 1))
   sleep 2
 done
-curl -sf "http://localhost:$PORT_NOW/" >/dev/null 2>&1 && echo "[boot] serve is up." || echo "[boot] WARNING: serve not responding yet."
+echo "[boot] serve check done."
 
 ./sync.sh &
+echo "[boot] sync started."
 
 if [ "$START_BRIDGE" = "1" ]; then
   echo "[boot] starting telegram bridge..."
-  exec node bridge.js
+  exec stdbuf -o0 -e0 node bridge.js
 else
-  echo "[boot] STANDBY (START_BRIDGE!=1) — serve only, no telegram polling."
+  echo "[boot] STANDBY — serve only, no telegram polling."
   wait
 fi
