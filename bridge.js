@@ -91,6 +91,7 @@ async function handleUpdate(u) {
   const msg = u.message;
   if (!msg || !msg.text) return;
   const uid = String(msg.from.id);
+  log("msg from " + uid + ": " + (msg.text || "?").slice(0, 80));
   if (!ALLOWED.includes(uid)) { log("ignored stranger " + uid); return; }
   const chatId = msg.chat.id;
   try {
@@ -123,11 +124,19 @@ async function main() {
   const me = await tg("getMe");
   log("connected as @" + me.username);
   let offset = loadOffset();
+  let backlog = [];
   if (!offset) {
     const old = await tg("getUpdates", { timeout: 0 });
-    if (old.length) offset = old[old.length - 1].update_id + 1;
+    if (old.length) {
+      offset = old[old.length - 1].update_id + 1;
+      // بعد النوم/إعادة النشر: عالج حديث آخر 30 دقيقة بدل رميه، وتجاهل الأقدم
+      const now = Date.now() / 1000;
+      backlog = old.filter((u) => u.message && u.message.text && now - (u.message.date || 0) < 1800);
+      if (old.length !== backlog.length) log("skipped " + (old.length - backlog.length) + " stale messages");
+    }
     saveOffset(offset);
   }
+  for (const u of backlog) { await handleUpdate(u); }
   for (;;) {
     try {
       const updates = await tg("getUpdates", { offset, timeout: POLL });
