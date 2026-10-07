@@ -17,13 +17,14 @@ fi
 
 echo "[boot] starting opencode serve on :$PORT_NOW ..."
 opencode serve --port "$PORT_NOW" --hostname 0.0.0.0 > /tmp/serve.log 2>&1 &
+echo "[boot] waiting for serve (node fetch, curl hangs on localhost here)..."
 i=0
 while [ $i -lt 30 ]; do
-  if curl -sf "http://localhost:$PORT_NOW/" >/dev/null 2>&1; then break; fi
+  if node -e "fetch('http://127.0.0.1:$PORT_NOW/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then break; fi
   i=$((i + 1))
   sleep 2
 done
-echo "[boot] serve check done."
+echo "[boot] serve check done (tried $i)."
 
 ./sync.sh &
 echo "[boot] sync started."
