@@ -16,7 +16,7 @@ services:
       - key: ALLOWED_USERS
         value: "7625383221"
       - key: START_BRIDGE
-        value: "0"
+        value: "1"
       - key: MEMORY_REPO
         value: ss938/nibras-memory
       - key: OPENCODE_SERVER_PASSWORD
