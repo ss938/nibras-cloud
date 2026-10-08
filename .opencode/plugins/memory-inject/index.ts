@@ -5,10 +5,12 @@ export default Plugin.define({
   id: "memory-inject",
   async setup(ctx) {
     await ctx.session.hook("prompt", (event) => {
-      const base = ctx.location.directory.replace(/\\/g, "/").split("/").map(encodeURIComponent).join("/");
+      const dir = ctx.location.directory.replace(/\\/g, "/");
+      const encoded = dir.split("/").map(encodeURIComponent).join("/");
+      const prefix = encoded.startsWith("/") ? "file://" : "file:///";
       event.prompt.files ??= [];
-      event.prompt.files.push({ uri: "file:///" + base + "/MEMORY.md" });
-      event.prompt.files.push({ uri: "file:///" + base + "/USER.md" });
+      event.prompt.files.push({ uri: prefix + encoded + "/MEMORY.md" });
+      event.prompt.files.push({ uri: prefix + encoded + "/USER.md" });
     });
   },
 })

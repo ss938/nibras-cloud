@@ -3,6 +3,7 @@
 set -e
 export PATH="$HOME/.opencode/bin:$PATH"
 PORT_NOW="${PORT:-10000}"
+export OPENCODE_SERVER_PASSWORD="${OPENCODE_SERVER_PASSWORD:-nibras-internal-pass}"
 echo "[boot] opencode version: $(opencode --version 2>&1 | head -2)"
 echo "[boot] api help: $(opencode api --help 2>&1 | head -5)"
 

@@ -1,17 +1,21 @@
 // جسر نبراس — نسخة سحابية. نفس منطق النسخة المحلية، والإعداد من متغيرات البيئة.
 // لا أسرار في هذا الملف إطلاقاً.
-const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
 const DIR = __dirname;
-const CLI = process.env.CLI_PATH || "opencode";
 const PROJECT_DIR = process.env.PROJECT_DIR || "/app";
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 const ALLOWED = (process.env.ALLOWED_USERS || "").split(",").map((s) => s.trim()).filter(Boolean);
-const MODEL = { providerID: process.env.MODEL_PROVIDER || "zenfree", id: process.env.MODEL_ID || "bunny" };
+const MODEL = {
+  providerID: process.env.MODEL_PROVIDER || "opencode",
+  id: process.env.MODEL_ID || "muse-spark-1.3-contributor-free",
+};
 const POLL = parseInt(process.env.POLL_SECONDS || "30", 10);
 const WAIT = parseInt(process.env.WAIT_TIMEOUT_MS || "300000", 10);
+const SERVER_URL = "http://127.0.0.1:" + (process.env.PORT || "10000");
+const SERVER_PASS = process.env.OPENCODE_SERVER_PASSWORD || "nibras-internal-pass";
+const AUTH_HEADER = "Basic " + Buffer.from("opencode:" + SERVER_PASS).toString("base64");
 const OFFSET_FILE = path.join(DIR, "bridge-offset.txt");
 const SESSIONS_FILE = path.join(DIR, "bridge-sessions.json");
 
@@ -32,38 +36,59 @@ async function tg(method, params = {}) {
   return j.result;
 }
 
-function oc(method, apiPath, data, timeoutMs) {
-  const args = ["api", method, apiPath];
-  if (data !== undefined) args.push("--data", JSON.stringify(data));
-  const out = execFileSync(CLI, args, { timeout: timeoutMs || 60000, maxBuffer: 8 * 1024 * 1024, encoding: "utf8", cwd: PROJECT_DIR });
-  return out.trim() ? JSON.parse(out) : {};
+async function oc(method, apiPath, data, timeoutMs) {
+  const url = SERVER_URL + apiPath;
+  const headers = {
+    "Authorization": AUTH_HEADER,
+    "Content-Type": "application/json",
+  };
+  const opts = {
+    method: method.toUpperCase(),
+    headers,
+    signal: AbortSignal.timeout(timeoutMs || 60000),
+  };
+  if (data !== undefined) opts.body = JSON.stringify(data);
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`OpenCode ${method} ${apiPath} HTTP ${res.status}: ${text}`);
+  }
+  const text = await res.text();
+  return text.trim() ? JSON.parse(text) : {};
 }
 
-function getSession(userId) {
+async function getSession(userId) {
   const sessions = loadSessions();
   if (sessions[userId]) return sessions[userId];
-  const s = oc("post", "/api/session", {
+  const s = await oc("post", "/api/session", {
     agent: "nibras", location: { directory: PROJECT_DIR }, model: MODEL, title: "tg-" + userId,
   });
   sessions[userId] = s.data.id;
   saveSessions(sessions);
-  log("new session for " + userId);
+  log("new session for " + userId + ": " + s.data.id);
   return s.data.id;
 }
 
 async function askNibras(sessionId, text, chatId) {
-  const getMsgs = () => (oc("get", "/api/session/" + sessionId + "/message", undefined, 30000).data) || [];
+  const getMsgs = async () => {
+    try {
+      const res = await oc("get", "/api/session/" + sessionId + "/message", undefined, 30000);
+      return res.data || [];
+    } catch {
+      return [];
+    }
+  };
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const before = getMsgs().length;
-    oc("post", "/api/session/" + sessionId + "/prompt", { text }, 60000);
+    const msgsBefore = await getMsgs();
+    const before = msgsBefore.length;
+    await oc("post", "/api/session/" + sessionId + "/prompt", { text }, 60000);
     const t0 = Date.now();
     let stable = 0, lastId = null, best = null, quota = false;
     for (;;) {
-      if (Date.now() - t0 > 150000) break;
+      if (Date.now() - t0 > WAIT) break;
       if (chatId) tg("sendChatAction", { chat_id: chatId, action: "typing" }).catch(() => {});
       await delay(5000);
-      let msgs = [];
-      try { msgs = getMsgs(); } catch { continue; }
+      const msgs = await getMsgs();
       if (!msgs.length) continue;
       const fresh = msgs.slice(before);
       const errs = fresh.filter((m) => m.type === "assistant" && m.finish === "error");
@@ -97,21 +122,28 @@ async function handleUpdate(u) {
   try {
     if (msg.text === "/new") {
       const sessions = loadSessions(); delete sessions[uid]; saveSessions(sessions);
-      await tg("sendMessage", { chat_id: chatId, text: "new session started" });
+      await tg("sendMessage", { chat_id: chatId, text: "بدأت جلسة جديدة — ذاكرتك الدائمة محفوظة." });
       return;
     }
-    let reply = await askNibras(getSession(uid), msg.text, chatId);
+    const sessionId = await getSession(uid);
+    let reply = await askNibras(sessionId, msg.text, chatId);
     if (reply === "multiple") reply = "النموذج متعثر الآن — جرّب بعد دقيقة.";
     await tg("sendMessage", { chat_id: chatId, text: reply });
-  } catch (e) { log("error: " + e.message); }
+  } catch (e) {
+    log("error: " + e.message);
+    await tg("sendMessage", { chat_id: chatId, text: "حدث خطأ غير متوقع أثناء معالجة رسالتك." }).catch(() => {});
+  }
 }
 
 async function waitForServe() {
-  const url = "http://127.0.0.1:" + (process.env.PORT || "10000") + "/";
+  const url = SERVER_URL + "/api/session";
   for (let i = 0; i < 24; i++) {
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (r.ok) { log("serve is up"); return; }
+      const r = await fetch(url, {
+        headers: { "Authorization": AUTH_HEADER },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (r.ok) { log("serve is up and authenticated"); return; }
     } catch {}
     await delay(5000);
   }

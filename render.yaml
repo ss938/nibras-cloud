@@ -19,3 +19,5 @@ services:
         value: "0"
       - key: MEMORY_REPO
         value: ss938/nibras-memory
+      - key: OPENCODE_SERVER_PASSWORD
+        value: nibras-internal-pass

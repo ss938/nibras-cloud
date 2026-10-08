@@ -18,6 +18,6 @@ WORKDIR /app
 COPY --chown=node:node . /app
 RUN chmod +x /app/start.sh /app/sync.sh
 
-ENV PORT=10000 CLI_PATH=opencode PROJECT_DIR=/app
+ENV PORT=10000 CLI_PATH=opencode PROJECT_DIR=/app OPENCODE_SERVER_PASSWORD=nibras-internal-pass
 EXPOSE 10000
 CMD ["./start.sh"]
