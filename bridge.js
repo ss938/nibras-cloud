@@ -176,4 +176,7 @@ async function main() {
     } catch (e) { log("transient: " + e.message); await delay(5000); }
   }
 }
-main();
+main().catch((err) => {
+  console.error(JSON.stringify({ t: new Date().toISOString(), fatal: err.message, stack: err.stack }));
+  process.exit(1);
+});
